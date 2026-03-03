@@ -282,6 +282,24 @@ export default function DashboardScreen() {
           </Text>
         </View>
 
+        <View style={styles.nathanCard}>
+          <View style={styles.nathanCardTop}>
+            <View style={styles.nathanAvatar}>
+              <Ionicons name="flask-outline" size={18} color={Colors.cyan} />
+            </View>
+            <View style={styles.nathanCardHeader}>
+              <Text style={styles.nathanCardTitle}>Built on Nathan's insight</Text>
+              <Text style={styles.nathanCardSub}>Computational Biology → Cognitive Networks</Text>
+            </View>
+          </View>
+          <Text style={styles.nathanCardBody}>
+            {`"Run a clustering method (I like DBSCAN because it doesn't require every point to be in a cluster). Label each cluster by decoding the embedding…"\n\n`}
+            <Text style={styles.nathanCardBodyBold}>
+              That's exactly the detector layer. Percolation theory adds what clustering can't: a continuous stress parameter that predicts when the whole system tips.
+            </Text>
+          </Text>
+        </View>
+
         <View style={styles.infoRow}>
           <View style={styles.infoCard}>
             <Ionicons name="eye-outline" size={18} color={Colors.cyan} />
@@ -571,5 +589,53 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 20,
     maxWidth: 260,
+  },
+  nathanCard: {
+    backgroundColor: Colors.bgCard,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderLeftWidth: 3,
+    borderLeftColor: Colors.cyan,
+    padding: 16,
+    marginBottom: 18,
+    gap: 12,
+  },
+  nathanCardTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  nathanAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.cyanDim,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  nathanCardHeader: {
+    flex: 1,
+  },
+  nathanCardTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: Colors.text,
+    marginBottom: 2,
+  },
+  nathanCardSub: {
+    fontSize: 11,
+    color: Colors.cyan,
+  },
+  nathanCardBody: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    lineHeight: 19,
+    fontStyle: "italic",
+  },
+  nathanCardBodyBold: {
+    fontStyle: "normal",
+    fontWeight: "600",
+    color: Colors.text,
   },
 });

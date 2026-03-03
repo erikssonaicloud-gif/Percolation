@@ -222,10 +222,21 @@ export default function DetectorScreen() {
           </Text>
         </View>
 
-        <View style={styles.conceptCard}>
-          <Ionicons name="bulb-outline" size={20} color={Colors.yellow} />
-          <Text style={styles.conceptText}>
-            Files like "Q3_Report.docx" spawning "Q3_Report Copy", "Q3_Report_Final", "Q3_Report_v2" indicate fragmented document workflows. Percolation drops when operators can't find the canonical version.
+        <View style={styles.dbscanCard}>
+          <View style={styles.dbscanCardRow}>
+            <View style={styles.dbscanPill}>
+              <Text style={styles.dbscanPillText}>DBSCAN</Text>
+            </View>
+            <Ionicons name="arrow-forward" size={12} color={Colors.textMuted} />
+            <View style={[styles.dbscanPill, { backgroundColor: Colors.orangeDim, borderColor: Colors.orange + "44" }]}>
+              <Text style={[styles.dbscanPillText, { color: Colors.orange }]}>Percolation</Text>
+            </View>
+          </View>
+          <Text style={styles.dbscanBody}>
+            <Text style={styles.dbscanBodyBold}>Nathan suggested DBSCAN</Text>
+            {" — embed each doc, cluster without forcing every point into a group. This tab is that layer: name-normalized clusters, no embeddings required.\n\n"}
+            <Text style={styles.dbscanBodyBold}>Percolation adds the dimension DBSCAN can't see:</Text>
+            {" the stress parameter — how version sprawl degrades the coupling between reading and writing before the system tips into paralysis."}
           </Text>
         </View>
 
@@ -504,5 +515,45 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 20,
     maxWidth: 260,
+  },
+  dbscanCard: {
+    backgroundColor: Colors.bgCard,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderLeftWidth: 3,
+    borderLeftColor: Colors.orange,
+    padding: 16,
+    marginBottom: 20,
+    gap: 10,
+  },
+  dbscanCardRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  dbscanPill: {
+    backgroundColor: Colors.cyanDim,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: Colors.cyan + "44",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  dbscanPillText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: Colors.cyan,
+    letterSpacing: 0.8,
+  },
+  dbscanBody: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    lineHeight: 19,
+  },
+  dbscanBodyBold: {
+    fontWeight: "700",
+    color: Colors.text,
+    fontStyle: "normal",
   },
 });

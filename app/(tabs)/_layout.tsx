@@ -18,6 +18,10 @@ function NativeTabLayout() {
         <Icon sf={{ default: "doc.on.doc", selected: "doc.on.doc.fill" }} />
         <Label>Detector</Label>
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="vision">
+        <Icon sf={{ default: "lightbulb", selected: "lightbulb.fill" }} />
+        <Label>Vision</Label>
+      </NativeTabs.Trigger>
     </NativeTabs>
   );
 }
@@ -72,6 +76,15 @@ function ClassicTabLayout() {
           title: "Detector",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="copy-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="vision"
+        options={{
+          title: "Vision",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="bulb-outline" size={size} color={color} />
           ),
         }}
       />
