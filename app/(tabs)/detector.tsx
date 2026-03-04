@@ -233,7 +233,7 @@ export default function DetectorScreen() {
             </View>
           </View>
           <Text style={styles.dbscanBody}>
-            <Text style={styles.dbscanBodyBold}>Nathan suggested DBSCAN</Text>
+            <Text style={styles.dbscanBodyBold}>Nathan Lazar, PhD suggested DBSCAN</Text>
             {" — embed each doc, cluster without forcing every point into a group. This tab is that layer: name-normalized clusters, no embeddings required.\n\n"}
             <Text style={styles.dbscanBodyBold}>Percolation adds the dimension DBSCAN can't see:</Text>
             {" the stress parameter — how version sprawl degrades the coupling between reading and writing before the system tips into paralysis."}

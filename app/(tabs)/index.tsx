@@ -191,7 +191,7 @@ function DayCard({
           />
           <MetricBadge
             value={poo.toFixed(2)}
-            label="P∞"
+            label="Coherence"
             color={Colors.orange}
             delay={index * 120 + 240}
           />
@@ -288,7 +288,7 @@ export default function DashboardScreen() {
               <Ionicons name="flask-outline" size={18} color={Colors.cyan} />
             </View>
             <View style={styles.nathanCardHeader}>
-              <Text style={styles.nathanCardTitle}>Built on Nathan's insight</Text>
+              <Text style={styles.nathanCardTitle}>Built on Nathan Lazar, PhD's insight</Text>
               <Text style={styles.nathanCardSub}>Computational Biology → Cognitive Networks</Text>
             </View>
           </View>
