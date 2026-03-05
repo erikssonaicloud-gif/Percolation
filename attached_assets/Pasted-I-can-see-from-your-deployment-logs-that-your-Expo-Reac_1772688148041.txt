@@ -1,0 +1,77 @@
+I can see from your deployment logs that your Expo/React Native app is failing health checks with HTTP 500 errors. Let me analyze the issues:
+Key Problems Identified
+1.  ES Module Warning (Critical)
+Warning: Module type of file:///home/runner/workspace/server_dist/index.js is not specified
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+Your package.json is missing "type": "module", causing Node.js to reparse files. This can cause runtime issues.
+2. HTTP 500 Errors on Health Checks
+The health check is reaching your server but getting 500 Internal Server Errors, not connection refused. This means your server is crashing when handling requests.
+Immediate Fixes
+Fix 1: Add Module Type to package.json
+{
+"name": "expo-app",
+"version": "1.0.0",
+"type": "module",
+"scripts": {
+"server:prod": "NODE_ENV=production node server_dist/index.js"
+}
+}
+Fix 2: Check Your Server Entry Point
+The 500 errors suggest your server_dist/index.js is crashing. Common causes:
+Check for these issues in your server code:
+// server_dist/index.js or your server entry point
+// ❌ Wrong: Using require() without proper setup
+const express = require('express');
+// ✅ Correct for ES modules:
+import express from 'express';
+// ❌ Wrong: __dirname isn't defined in ES modules
+const path = __dirname + '/public';
+// ✅ Correct:
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const path = join(__dirname, 'public');
+Fix 3: Add Error Handling & Logging
+Wrap your server startup to catch errors:
+// At the top of server_dist/index.js
+process.on('uncaughtException', (err) => {
+console.error('Uncaught Exception:', err);
+process.exit(1);
+});
+process.on('unhandledRejection', (err) => {
+console.error('Unhandled Rejection:', err);
+process.exit(1);
+});
+// Wrap your app initialization
+try {
+// your server setup
+app.listen(port, () => {
+console.log(Server running on port ${port});
+});
+} catch (error) {
+console.error('Failed to start server:', error);
+process.exit(1);
+}
+Fix 4: Verify Environment Variables
+Check that NODE_ENV=production isn't breaking your app. Some Expo/webpack configs behave differently in production.
+Debugging Steps
+1.  Check if it runs locally:
+npm run server:prod
+curl http://localhost:8081/
+2.  Add verbose logging to see where the 500 error originates
+3.  Check for missing build artifacts - ensure server_dist/ actually contains all compiled files
+4.  Verify port binding - your app must bind to 0.0.0.0 (all interfaces), not just localhost:
+// ❌ Wrong
+app.listen(8081, '127.0.0.1');
+// ✅ Correct
+app.listen(8081, '0.0.0.0');
+Most Likely Root Cause
+Given the Expo static file serving message followed by immediate 500 errors, I suspect your dynamic manifest routing is failing. Check your manifest handler:
+// Look for this pattern in your server code
+app.get('/manifest', (req, res) => {
+// If this throws, you get 500 errors
+const platform = req.headers['expo-platform'];
+// Are you handling missing headers?
+});
+Would you like to share your server_dist/index.js (or the source file that generates it) so I can pinpoint the exact issue?
