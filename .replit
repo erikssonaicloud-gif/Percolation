@@ -41,8 +41,8 @@ args = "Start App"
 
 [[workflows.workflow]]
 name = "Start App"
-author = "agent"
 mode = "parallel"
+author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
@@ -54,8 +54,8 @@ args = "Start Frontend"
 
 [[workflows.workflow]]
 name = "Start Backend"
-author = "agent"
 mode = "sequential"
+author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
@@ -64,8 +64,8 @@ waitForPort = 5000
 
 [[workflows.workflow]]
 name = "Start Frontend"
-author = "agent"
 mode = "sequential"
+author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
