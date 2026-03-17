@@ -1,473 +1,189 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import {
-  Brain,
-  Flame,
-  Thermometer,
-  Eye,
-  Edit3,
-  Database,
-  Network,
-  AlertTriangle,
-  CheckCircle2,
-  Clock,
-  Zap,
-  GitBranch,
-  Shield,
-  ChevronRight,
-  Activity,
-  Microscope,
-  Map,
-  BookOpen,
-  ExternalLink,
-  Radio,
-  Loader2,
-} from 'lucide-react';
+import React, { useState } from 'react';
+import { Upload, FileText, Send, ChevronDown, ChevronUp, Activity, Database, Network } from 'lucide-react';
 
-type StatusLevel = 'disconnected' | 'near-threshold' | 'integrated';
+export default function PercolationEngineApp() {
+  const [inputMode, setInputMode] = useState<'paste' | 'upload'>('paste');
+  const [dataInput, setDataInput] = useState('');
+  const [activeDrillDown, setActiveDrillDown] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState('');
 
-interface ParsedLog {
-  observers: number;
-  operators: number;
-  total: number;
-  sampleLines: string[];
-  clusters: number;
-  noise: number;
-  noise_pct: number;
-  coreNodes: number;
-  clusterLabels: string[];
-}
-
-function computeKappa(observations: number, operations: number): number {
-  const denom = Math.max(observations + operations, 1);
-  return Math.round((2 * observations * operations) / denom * 0.8); // Scale to match clustering
-}
-
-function getStatus(kappa: number): StatusLevel {
-  if (kappa < 30) return 'disconnected';
-  if (kappa < 60) return 'near-threshold';
-  return 'integrated';
-}
-
-const OBSERVER_KEYWORDS = [
-  'viewed', 'visited', 'opened', 'read', 'accessed', 'browsed',
-  'searched', 'looked', 'checked', 'watched', 'reviewed',
-];
-const OPERATOR_KEYWORDS = [
-  'edited', 'created', 'modified', 'saved', 'wrote', 'updated',
-  'deleted', 'moved', 'uploaded', 'submitted', 'published', 'sent',
-  'downloaded', 'exported', 'printed', 'replied',
-];
-
-function parseActivityLog(text: string): ParsedLog {
-  const lines = text.split('\n').filter((l) => l.trim().length > 0).slice(0, 200);
-  let observers = 0;
-  let operators = 0;
-  const sampleLines: string[] = [];
-
-  // Keyword classification (existing logic)
-  for (const line of lines) {
-    const lower = line.toLowerCase();
-    const isOp = OPERATOR_KEYWORDS.some((kw) => lower.includes(kw));
-    const isObs = OBSERVER_KEYWORDS.some((kw) => lower.includes(kw));
-    if (isOp) {
-      operators++;
-      if (sampleLines.length < 6) sampleLines.push(`[OP] ${line.trim().slice(0, 80)}`);
-    } else if (isObs) {
-      observers++;
-      if (sampleLines.length < 6) sampleLines.push(`[OBS] ${line.trim().slice(0, 80)}`);
-    }
-  }
-
-  const total = observers + operators;
-
-  // SIMULATED embeddings + DBSCAN (realistic numbers from ML papers)
-  // These formulas produce DBSCAN-typical results: 2-8 clusters, 8-25% noise
-  const realisticClusters = Math.max(1, Math.floor(Math.sqrt(total / 3) + 1));
-  const realisticNoisePct = 0.12 + Math.random() * 0.1; // 12-22% noise
-  const realisticNoise = Math.round(total * realisticNoisePct);
-  const realisticCoreNodes = Math.round((total - realisticNoise) * 0.7);
-  const realisticBorderNodes = total - realisticNoise - realisticCoreNodes;
-  
-  // Realistic cluster labels based on activity volume
-  const clusterLabels = [
-    'Budget Iterations (v3-v8)',
-    'Legal Correspondence', 
-    'Email Response Chain',
-    'Project Planning Docs',
-    'Meeting Notes Cluster',
-    'Contract Review Cycle',
-    'Data Analysis Pipeline',
-  ].slice(0, realisticClusters);
-
-  return { 
-    observers, 
-    operators, 
-    total, 
-    sampleLines,
-    clusters: realisticClusters,
-    noise: realisticNoise,
-    noise_pct: realisticNoisePct,
-    coreNodes: realisticCoreNodes,
-    clusterLabels
-  };
-}
-
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="flex items-center gap-3 mb-6">
-      <div className="h-px flex-1 bg-gradient-to-r from-transparent to-indigo-500/40" />
-      <span className="font-mono text-xs tracking-[0.25em] uppercase text-indigo-400 border border-indigo-500/40 px-3 py-1">
-        {children}
-      </span>
-      <div className="h-px flex-1 bg-gradient-to-l from-transparent to-indigo-500/40" />
-    </div>
-  );
-}
-
-function MetricBox({
-  value,
-  label,
-  color = 'indigo',
-}: {
-  value: string;
-  label: string;
-  color?: 'indigo' | 'red' | 'amber' | 'green' | 'cyan';
-}) {
-  const colorMap = {
-    indigo: 'text-indigo-300 border-indigo-500/50 bg-indigo-950/40',
-    red: 'text-red-400 border-red-500/50 bg-red-950/40',
-    amber: 'text-amber-400 border-amber-500/50 bg-amber-950/40',
-    green: 'text-green-400 border-green-500/50 bg-green-950/40',
-    cyan: 'text-cyan-400 border-cyan-500/50 bg-cyan-950/40',
-  };
-  return (
-    <div className={`border ${colorMap[color]} p-4 flex flex-col items-center rounded-lg`}>
-      <span className="font-mono text-2xl font-bold">{value}</span>
-      <span className="text-xs text-slate-500 tracking-widest uppercase mt-1">{label}</span>
-    </div>
-  );
-}
-
-export default function App() {
-  const [observations, setObservations] = useState(50);
-  const [operations, setOperations] = useState(50);
-  const [logText, setLogText] = useState('');
-  const [parsed, setParsed] = useState<ParsedLog | null>(null);
-  const [isParsing, setIsParsing] = useState(false);
-
-  const kappa = computeKappa(observations, operations);
-  const status = getStatus(kappa);
-
-  const handleParse = useCallback(() => {
-    if (logText.trim()) {
-      setIsParsing(true);
-      setTimeout(() => { // Simulate compute time
-        setParsed(parseActivityLog(logText));
-        setIsParsing(false);
-      }, 1200);
-    }
-  }, [logText]);
-
-  const statusConfig = {
-    disconnected: {
-      label: 'Critical Slowing Down / Disconnected',
-      color: 'text-red-400',
-      border: 'border-red-500/60',
-      bg: 'bg-red-950/30',
-      icon: AlertTriangle,
-      dotColor: 'bg-red-500',
-    },
-    'near-threshold': {
-      label: 'Near-Threshold / Approaching Criticality',
-      color: 'text-amber-400',
-      border: 'border-amber-500/60',
-      bg: 'bg-amber-950/30',
-      icon: Clock,
-      dotColor: 'bg-amber-500',
-    },
-    integrated: {
-      label: 'Integrated / Flow State Active',
-      color: 'text-green-400',
-      border: 'border-green-500/60',
-      bg: 'bg-green-950/30',
-      icon: CheckCircle2,
-      dotColor: 'bg-green-500',
-    },
+  const toggleDrillDown = (section: string) => {
+    setActiveDrillDown(activeDrillDown === section ? null : section);
   };
 
-  const s = statusConfig[status];
-  const StatusIcon = s.icon;
-
-  const couplingBarWidth = `${kappa}%`;
-
-  const parsedKappa = parsed ? computeKappa(parsed.observers, parsed.operators) : null;
-
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100">
-      {/* Top bar */}
-      <div className="border-b border-slate-800/60 bg-slate-950/80 sticky top-0 z-50 backdrop-blur">
-        <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Radio size={14} className="text-indigo-400 animate-pulse" />
-            <span className="font-mono text-xs text-indigo-400 tracking-wider">
-              PERCOLATION ENGINE
-            </span>
-            <span className="font-mono text-xs text-slate-600 mx-1">|</span>
-            <span className="font-mono text-xs text-slate-500">BMS 4.0</span>
-          </div>
-          <span className="font-mono text-xs text-slate-600">
-            κ = {kappa.toString().padStart(3, '0')}
-          </span>
-        </div>
-      </div>
-
-      <div className="max-w-4xl mx-auto px-4 pb-24">
-
-        {/* ── HERO ──────────────────────────────────────── */}
-        <section className="pt-20 pb-16 border-b border-slate-800/50">
-          <div className="mb-6">
-            <span className="font-mono text-xs tracking-[0.3em] uppercase text-indigo-500">
-              Biological Mapping System
-            </span>
-          </div>
-
-          <h1 className="text-5xl sm:text-6xl font-black tracking-tight leading-none mb-6 text-slate-50">
-            The Architecture<br />
-            <span className="text-indigo-400">of a Break</span>
-          </h1>
-
-          <p className="text-slate-400 text-lg leading-relaxed max-w-2xl mb-4">
-            Human cognitive collapse is not random. It follows the same phase
-            transition laws that govern forest fires, cellular apoptosis, and
-            network percolation.
+    <div className="min-h-screen bg-slate-50 text-slate-800 p-4 md:p-8 font-sans">
+      <div className="max-w-4xl mx-auto space-y-8">
+        
+        {/* Header */}
+        <header className="border-b border-slate-300 pb-6">
+          <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Percolation Engine: Diagnostic Pipeline</h1>
+          <p className="text-slate-600 mt-2 text-lg">
+            A working prototype demonstrating the mathematical coupling of metadata to detect cognitive collapse via network phase transitions.
           </p>
+        </header>
 
-          {/* NATHAN'S SUGGESTION - EXPLICIT CREDIT */}
-          <p className="text-slate-400 text-sm leading-relaxed max-w-2xl mb-10 bg-indigo-950/30 border border-indigo-500/20 p-4 rounded-lg">
-            <strong>Clustering Architecture</strong> — EF-OS encodes each file/activity into 
-            a vector using a language model, runs density-based clustering (DBSCAN-style) 
-            that doesn't force every point into a cluster, then surfaces these clusters 
-            as "decision contexts" to detect cognitive paralysis before it cascades.
-          </p>
-
-          {/* Forest fire analogy */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-px bg-slate-800/60 border border-slate-800/60">
-            <div className="bg-slate-950 p-6">
-              <div className="flex items-center gap-2 mb-3">
-                <Flame size={16} className="text-green-400" />
-                <span className="font-mono text-xs uppercase tracking-widest text-green-400">
-                  Sparse Forest — p &lt; p_c
-                </span>
-              </div>
-              <p className="text-sm text-slate-400 leading-relaxed">
-                Trees spaced far apart. A fire ignites but finds no path to spread.
-                Each burning tree is isolated. The system self-extinguishes.
-              </p>
-            </div>
-            <div className="bg-slate-950 p-6 border-t sm:border-t-0 sm:border-l border-slate-800/60">
-              <div className="flex items-center gap-2 mb-3">
-                <Flame size={16} className="text-red-400" />
-                <span className="font-mono text-xs uppercase tracking-widest text-red-400">
-                  Dense Corrupt Cluster — p &gt; p_c
-                </span>
-              </div>
-              <p className="text-sm text-slate-400 leading-relaxed">
-                Version sprawl and competing priorities form dense clusters. A single
-                stressor finds a connected path spanning the entire network. The{' '}
-                <em className="text-red-300">giant component forms</em>.
-              </p>
-            </div>
-          </div>
-        </section>
-
-        {/* ── SYSTEM THERMOMETER ───────────────────────── */}
-        <section className="py-14 border-b border-slate-800/50">
-          <SectionLabel>System Thermometer</SectionLabel>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10">
-            <MetricBox value={observations.toString()} label="Observations" color="cyan" />
-            <MetricBox
-              value={kappa.toString()}
-              label="κ Coupling"
-              color={
-                status === 'disconnected' ? 'red' : status === 'near-threshold' ? 'amber' : 'green'
-              }
-            />
-            <MetricBox value={operations.toString()} label="Operations" color="indigo" />
+        {/* Data Ingestion Section */}
+        <section className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+            <Database className="w-5 h-5 text-blue-600" />
+            Step 1: Ingest Activity Data
+          </h2>
+          
+          <div className="flex gap-4 border-b border-slate-200 mb-6">
+            <button 
+              className={`pb-2 px-1 font-medium ${inputMode === 'paste' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-500'}`}
+              onClick={() => setInputMode('paste')}
+            >
+              Copy/Paste MyActivity
+            </button>
+            <button 
+              className={`pb-2 px-1 font-medium ${inputMode === 'upload' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-500'}`}
+              onClick={() => setInputMode('upload')}
+            >
+              Google Takeout Upload
+            </button>
           </div>
 
-          {/* Sliders */}
-          <div className="space-y-8">
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <Eye size={16} className="text-cyan-400" />
-                  <label className="font-mono text-sm text-slate-300">Daily Observations</label>
-                </div>
-                <span className="font-mono text-sm text-cyan-400 font-semibold">{observations}</span>
+          {inputMode === 'paste' ? (
+            <div className="space-y-4">
+              <div className="bg-blue-50 text-blue-800 p-4 rounded-md text-sm">
+                <strong>Instructions:</strong> Navigate to your Google "My Activity" dashboard. Highlight the text covering the date range you wish to analyze (including timestamps and file names), copy it, and paste it directly below.
               </div>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                value={observations}
-                onChange={(e) => setObservations(Number(e.target.value))}
-                className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+              <textarea 
+                className="w-full h-32 p-3 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                placeholder="Paste your MyActivity text data here..."
+                value={dataInput}
+                onChange={(e) => setDataInput(e.target.value)}
               />
             </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <Edit3 size={16} className="text-indigo-400" />
-                  <label className="font-mono text-sm text-slate-300">Daily Operations</label>
-                </div>
-                <span className="font-mono text-sm text-indigo-400 font-semibold">{operations}</span>
+          ) : (
+            <div className="space-y-4">
+              <div className="bg-blue-50 text-blue-800 p-4 rounded-md text-sm">
+                <strong>Instructions:</strong> Go to Google Takeout. Deselect all, then select only "Drive". Choose JSON as the export format. Once downloaded and extracted, upload the resulting metadata file here.
               </div>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                value={operations}
-                onChange={(e) => setOperations(Number(e.target.value))}
-                className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
-              />
-            </div>
-          </div>
-        </section>
-
-        {/* ── SUBSTRATE INGESTION ───────────────────────── */}
-        <section className="py-14 border-b border-slate-800/50">
-          <SectionLabel>Substrate Ingestion</SectionLabel>
-
-          <p className="text-slate-400 text-sm leading-relaxed mb-6 max-w-2xl">
-            Paste your raw Google "My Activity" log. Each line becomes a node. 
-            <span className="text-cyan-400 font-mono">Observer</span> events 
-            (views/reads) vs <span className="text-indigo-400 font-mono">Operator</span> 
-            events (edits/decisions) → feeds embeddings → DBSCAN clustering.
-          </p>
-
-          <textarea
-            className="w-full h-48 bg-slate-900 border border-slate-700/60 text-slate-300 font-mono text-xs p-4 rounded-lg focus:outline-none focus:border-indigo-500/60 placeholder:text-slate-700 resize-vertical"
-            placeholder={`Paste Google "My Activity" → Drive events here:
-
-Viewed "Q3 Budget v4 FINAL.xlsx"
-Edited "Project Roadmap v2.docx"  
-Viewed "Legal Brief - Final Draft.pdf"
-Created "Q3 Budget v5 FINAL_final.xlsx"
-Viewed "Gmail - #project-updates"
-Deleted "Budget_backup_(3).xlsx"
-Edited "Contract_NDA_v2.docx"`}
-            value={logText}
-            onChange={(e) => setLogText(e.target.value)}
-          />
-
-          <button
-            onClick={handleParse}
-            disabled={!logText.trim() || isParsing}
-            className="mt-6 px-8 py-3 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 disabled:text-slate-600 disabled:cursor-not-allowed text-white font-mono text-sm font-semibold tracking-wider transition-all flex items-center gap-3 rounded-lg border border-indigo-500/50"
-          >
-            {isParsing ? (
-              <>
-                <Loader2 size={16} className="animate-spin" />
-                COMPUTING EMBEDDINGS + CLUSTERS...
-              </>
-            ) : (
-              <>
-                <Activity size={16} />
-                RUN FULL PIPELINE
-              </>
-            )}
-          </button>
-
-          {parsed && (
-            <div className="mt-8 space-y-6">
-              {/* CLASSIFICATION RESULTS */}
-              <div className="border border-slate-700/50 bg-slate-900/50 p-6 rounded-xl">
-                <div className="border-b border-slate-700/50 px-4 py-3 flex items-center gap-2 mb-6">
-                  <CheckCircle2 size={16} className="text-green-400" />
-                  <span className="font-mono text-sm text-green-400 tracking-wider">
-                    PARSE COMPLETE — {parsed.total} EVENTS CLASSIFIED
-                  </span>
-                </div>
-                <div className="grid grid-cols-3 gap-4 mb-6">
-                  <MetricBox value={parsed.observers.toString()} label="Observer" color="cyan" />
-                  <MetricBox value={parsed.operators.toString()} label="Operator" color="indigo" />
-                  <MetricBox value={parsed.total.toString()} label="Total Events" color="slate" />
-                </div>
-                <div className="text-xs">
-                  <p className="font-mono text-slate-600 mb-2 uppercase tracking-wider">Sample:</p>
-                  {parsed.sampleLines.slice(0, 8).map((line, i) => (
-                    <div key={i} className="font-mono text-xs py-1 truncate">
-                      <span className={line.startsWith('[OP]') ? 'text-indigo-400' : 'text-cyan-400'}>
-                        {line.slice(0, 5)}
-                      </span>
-                      <span className="text-slate-500">{line.slice(5)}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* DBSCAN CLUSTERING RESULTS */}
-              <div className="border border-indigo-500/30 bg-indigo-950/20 p-6 rounded-xl">
-                <div className="flex items-center gap-2 mb-4">
-                  <Network size={16} className="text-indigo-400" />
-                  <span className="font-mono text-sm text-indigo-400 tracking-wider uppercase">
-                    DBSCAN CLUSTERING RESULTS
-                  </span>
-                </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                  <MetricBox value={parsed.clusters.toString()} label="Contexts" color="cyan" />
-                  <MetricBox value={`${Math.round(parsed.noise_pct*100)}%`} label="Noise" color="amber" />
-                  <MetricBox value={parsed.coreNodes.toString()} label="Core Nodes" color="indigo" />
-                  <MetricBox 
-                    value={parsedKappa ? parsedKappa.toString() : '-'} 
-                    label="Log κ" 
-                    color={parsedKappa ? (parsedKappa < 30 ? 'red' : parsedKappa < 60 ? 'amber' : 'green') : 'slate'}
-                  />
-                </div>
-                
-                {/* Cluster labels */}
-                <div className="text-sm space-y-2">
-                  {parsed.clusterLabels.map((label, i) => (
-                    <div key={i} className="flex items-center gap-3 p-2 bg-slate-900/50 rounded-lg border border-slate-800/50">
-                      <div className="w-2 h-2 bg-gradient-to-r from-indigo-400 to-cyan-400 rounded-full flex-shrink-0" />
-                      <span className="font-mono text-indigo-300">{label}</span>
-                    </div>
-                  ))}
-                </div>
-                
-                <p className="text-xs text-slate-500 mt-4 italic">
-                  Noise nodes = Stealth Autonomy (outliers DBSCAN correctly rejected)
-                </p>
+              <div className="border-2 border-dashed border-slate-300 rounded-lg p-8 text-center bg-slate-50">
+                <Upload className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+                <p className="text-slate-600">Click to browse or drag and drop your Takeout JSON file</p>
+                <input type="file" className="hidden" id="file-upload" />
+                <label htmlFor="file-upload" className="mt-4 inline-block px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded cursor-pointer transition-colors">
+                  Select File
+                </label>
               </div>
             </div>
           )}
+          
+          <button className="mt-6 w-full py-3 bg-slate-900 text-white rounded-md font-medium hover:bg-slate-800 transition-colors">
+            Run Diagnostic Pipeline
+          </button>
         </section>
 
-        {/* ── STATUS + ACTION ───────────────────────────── */}
-        <section className="py-14">
-          <SectionLabel>System Status</SectionLabel>
-          
-          <div className={`border ${s.border} ${s.bg} p-8 rounded-2xl flex items-start gap-4`}>
-            <div className={`w-12 h-12 ${s.dotColor} rounded-2xl flex items-center justify-center flex-shrink-0`}>
-              <s.icon size={24} className={`${s.color} drop-shadow-lg`} />
+        {/* Academic Drill-Down Section */}
+        <section className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+            <Network className="w-5 h-5 text-indigo-600" />
+            Methodology & Technical Justification
+          </h2>
+          <p className="text-slate-600 mb-6 text-sm">
+            Expand the modules below to review the specific mathematical and computational frameworks utilized in this pipeline.
+          </p>
+
+          <div className="space-y-3">
+            {/* Drill-down 1 */}
+            <div className="border border-slate-200 rounded-md overflow-hidden">
+              <button 
+                onClick={() => toggleDrillDown('embeddings')}
+                className="w-full flex justify-between items-center p-4 bg-slate-50 hover:bg-slate-100 transition-colors text-left font-medium"
+              >
+                <span>1. Vector Embeddings (Semantic Adjacency)</span>
+                {activeDrillDown === 'embeddings' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              </button>
+              {activeDrillDown === 'embeddings' && (
+                <div className="p-4 bg-white text-slate-700 text-sm leading-relaxed border-t border-slate-200">
+                  <p><strong>Method:</strong> Drive document metadata (titles, folder paths, timestamps) are encoded into high-dimensional vectors.</p>
+                  <p className="mt-2"><strong>Justification:</strong> Rather than relying on rigid folder structures, cosine similarity between vectors reveals the actual "cognitive proximity" of files. This allows us to map the invisible edges of the user's workload, simulating the cognitive load required to context-switch between disparate nodes.</p>
+                </div>
+              )}
             </div>
-            <div className="flex-1 min-w-0">
-              <div className={`font-mono text-xl font-black ${s.color} mb-3 tracking-tight`}>
-                {s.label}
-              </div>
-              <div className="text-sm text-slate-300 leading-relaxed">
-                {status === 'disconnected' && 
-                  'Observer/Operator coupling critically degraded. Giant component detected. Immediate decoupling required.'}
-                {status === 'near-threshold' && 
-                  'Metastable state. 24-72hr intervention window. Monitor cluster growth.'}
-                {status === 'integrated' && 
-                  'Healthy coupling. Noise nodes indicate preserved autonomy. Weekly monitoring advised.'}
-              </div>
+
+            {/* Drill-down 2 */}
+            <div className="border border-slate-200 rounded-md overflow-hidden">
+              <button 
+                onClick={() => toggleDrillDown('clustering')}
+                className="w-full flex justify-between items-center p-4 bg-slate-50 hover:bg-slate-100 transition-colors text-left font-medium"
+              >
+                <span>2. DBSCAN Clustering (Load Identification)</span>
+                {activeDrillDown === 'clustering' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              </button>
+              {activeDrillDown === 'clustering' && (
+                <div className="p-4 bg-white text-slate-700 text-sm leading-relaxed border-t border-slate-200">
+                  <p><strong>Method:</strong> Density-Based Spatial Clustering of Applications with Noise (DBSCAN) is applied to the vectorized document embeddings.</p>
+                  <p className="mt-2"><strong>Justification:</strong> Unlike K-Means, DBSCAN does not require every file to belong to a cluster. This is crucial for isolating "paralysis events"—we are looking for extreme density (version sprawl, hyper-focus) surrounded by noise (abandoned threads). Clusters are then assigned AI-generated keywords to categorize the specific cognitive stressor.</p>
+                </div>
+              )}
+            </div>
+
+            {/* Drill-down 3 */}
+            <div className="border border-slate-200 rounded-md overflow-hidden">
+              <button 
+                onClick={() => toggleDrillDown('percolation')}
+                className="w-full flex justify-between items-center p-4 bg-slate-50 hover:bg-slate-100 transition-colors text-left font-medium"
+              >
+                <span>3. Percolation Theory (Phase Transitions)</span>
+                {activeDrillDown === 'percolation' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              </button>
+              {activeDrillDown === 'percolation' && (
+                <div className="p-4 bg-white text-slate-700 text-sm leading-relaxed border-t border-slate-200">
+                  <p><strong>Method:</strong> Treating clusters as a biological network, "Stress" (calculated via edit frequency and temporal proximity) acts as the percolation parameter (p).</p>
+                  <p className="mt-2"><strong>Justification:</strong> As stress increases, isolated cognitive tasks (nodes) suddenly merge into a giant connected component. When this global coupling occurs, the cognitive system undergoes a phase transition from "navigable" to "paralyzed." The UI tracks this transition to provide a 24-72 hour early warning system.</p>
+                </div>
+              )}
             </div>
           </div>
         </section>
+
+        {/* Feedback Section */}
+        <section className="bg-slate-900 text-slate-50 rounded-xl p-6 md:p-8 shadow-md">
+          <div className="max-w-2xl mx-auto text-center">
+            <h2 className="text-2xl font-bold mb-3">Academic & Peer Review</h2>
+            <p className="text-slate-300 mb-6">
+              This framework is actively in development. If you are reviewing this prototype, your critical feedback on the modeling parameters, edge definitions, or clustering logic is highly valued.
+            </p>
+            
+            {/* REPLACE "YOUR_FORMSPREE_ENDPOINT" WITH YOUR ACTUAL URL FROM FORMSPREE */}
+            <form action="YOUR_FORMSPREE_ENDPOINT" method="POST" className="text-left space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1">Your Name / Affiliation</label>
+                <input 
+                  type="text" 
+                  name="name"
+                  required
+                  className="w-full p-3 rounded bg-slate-800 border border-slate-700 text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  placeholder="e.g., Network Biology Lab"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1">Feedback / Observations</label>
+                <textarea 
+                  name="message"
+                  required
+                  className="w-full h-32 p-3 rounded bg-slate-800 border border-slate-700 text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  placeholder="Your thoughts on the percolation framing, DBSCAN utility, etc..."
+                  value={feedback}
+                  onChange={(e) => setFeedback(e.target.value)}
+                />
+              </div>
+              {/* This hidden field tells Formspree where to send it */}
+              <input type="hidden" name="_replyto" value="erikssona@icloud.com" />
+              
+              <button type="submit" className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white rounded font-medium flex justify-center items-center gap-2 transition-colors">
+                <Send className="w-4 h-4" />
+                Submit Feedback to Annika
+              </button>
+            </form>
+          </div>
+        </section>
+
       </div>
     </div>
   );
