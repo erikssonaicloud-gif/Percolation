@@ -151,7 +151,7 @@ export default function PercolationEngineApp() {
             </p>
             
             {/* REPLACE "YOUR_FORMSPREE_ENDPOINT" WITH YOUR ACTUAL URL FROM FORMSPREE */}
-            <form action="YOUR_FORMSPREE_ENDPOINT" method="POST" className="text-left space-y-4">
+            <form action="https://formspree.io/f/mdawpwlj" method="POST" className="text-left space-y-4">
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-1">Your Name / Affiliation</label>
                 <input 
